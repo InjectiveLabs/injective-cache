@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -31,4 +32,15 @@ func TestBatchSetGet(t *testing.T) {
 
 	assert.Equal(t, []byte("value3"), v[0])
 	assert.Equal(t, []byte("value2"), v[1])
+}
+
+func TestRedisSet(t *testing.T) {
+	cache, err := NewRedisCache(context.Background(), "localhost:6379", 5*time.Second)
+	assert.Nil(t, err)
+
+	cache.Set("hello", []byte("word"))
+	v, err := cache.Get("hello")
+	assert.Nil(t, err)
+
+	assert.Equal(t, []byte("word"), v)
 }
