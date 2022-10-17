@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSetGet(t *testing.T) {
@@ -35,12 +36,23 @@ func TestBatchSetGet(t *testing.T) {
 }
 
 func TestRedisSet(t *testing.T) {
-	cache, err := NewRedisCache(context.Background(), "localhost:6379", 5*time.Second)
+	ctx := context.Background()
+	cache, err := NewRedisCache(ctx, "localhost:6379", 5*time.Second)
 	assert.Nil(t, err)
 
-	cache.Set("hello", []byte("word"))
-	v, err := cache.Get("hello")
+	cache.SetCtx(ctx, "hello", []byte("word"))
+	v, err := cache.GetCtx(ctx, "hello")
 	assert.Nil(t, err)
 
 	assert.Equal(t, []byte("word"), v)
+
+	t.Run("batch set", func(t *testing.T) {
+		require.Nil(t, cache.BatchSetCtx(ctx, "hello", []byte("world")))
+		v, err := cache.GetCtx(ctx, "hello")
+		assert.Nil(t, err)
+		assert.Equal(t, []byte("world"), v)
+
+		require.ErrorIs(t, cache.BatchSetCtx(ctx, true, []byte("world")), ErrInvalidKey)
+		require.ErrorIs(t, cache.BatchSetCtx(ctx, "hello", false), ErrInvalidValue)
+	})
 }
