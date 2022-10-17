@@ -4,7 +4,7 @@
 
 ### New Redis cache
 
-```
+```go
 cache, err := NewRedisCache(context.Background(), "localhost:6379", 5*time.Second)
 if err != nil {
     panic(err)
@@ -23,7 +23,7 @@ fmt.Println(v)
 
 ### New libcache (in-process cache)
 
-```
+```go
 cache, err := NewLibcache(0, 5*time.Second)
 if err != nil {
     panic(err)

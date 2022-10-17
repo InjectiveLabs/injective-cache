@@ -2,20 +2,22 @@ package cache
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/shaj13/libcache"
 	_ "github.com/shaj13/libcache/lru"
 )
 
+var _ Cache = (*memLibCache)(nil)
+
 type memLibCache struct {
 	// caveat:
 	// libcache won't evict upon timeout, eviction only happens when it's expired + the cache key is read
 	cache libcache.Cache
-	Cache
 }
 
-func NewLibcache(cap int, ttl time.Duration) (Cache, error) {
+func NewLibcache(cap int, ttl time.Duration) (*memLibCache, error) {
 	c := libcache.LRU.New(cap) // new thread-safe cache
 	c.SetTTL(ttl)
 	return &memLibCache{
@@ -60,8 +62,16 @@ func (l *memLibCache) BatchSet(keyvalues ...interface{}) error {
 	}
 
 	for i := 0; i < len(keyvalues); i += 2 {
-		key := keyvalues[i].(string)
-		value := keyvalues[i+1].([]byte)
+		key, ok := keyvalues[i].(string)
+		if !ok {
+			return fmt.Errorf("%w at index %d: expected string, got %T", ErrInvalidKey, i, keyvalues[i])
+		}
+
+		value, ok := keyvalues[i+1].([]byte)
+		if !ok {
+			return fmt.Errorf("%w at index %d: expected []byte, got %T", ErrInvalidValue, i, keyvalues[i])
+		}
+
 		l.cache.Store(key, value)
 	}
 	return nil
