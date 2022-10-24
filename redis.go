@@ -10,19 +10,16 @@ import (
 )
 
 var (
-	_ Cache    = (*redisCache)(nil)
-	_ CacheCtx = (*redisCache)(nil)
+	_ Cache = (*redisCache)(nil)
 )
 
 type redisCache struct {
-	ctx    context.Context
 	client *rediscache.Client
 	ttl    time.Duration
 }
 
-func NewRedisCacheWithClient(client *rediscache.Client, ttl time.Duration) *redisCache {
+func NewRedisCacheWithClient(ctx context.Context, client *rediscache.Client, ttl time.Duration) *redisCache {
 	return &redisCache{
-		ctx:    context.Background(),
 		client: client,
 		ttl:    ttl,
 	}
@@ -40,14 +37,13 @@ func NewRedisCache(ctx context.Context, cacheURL string, ttl time.Duration) (*re
 		return nil, fmt.Errorf("redis cache err: %w", err)
 	}
 
-	c := NewRedisCacheWithClient(client, ttl)
-	c.ctx = ctx
+	c := NewRedisCacheWithClient(ctx, client, ttl)
 
 	return c, nil
 }
 
-func (r *redisCache) Set(key string, value []byte) error {
-	return r.SetCtx(r.ctx, key, value)
+func (r *redisCache) Set(ctx context.Context, key string, value []byte) error {
+	return r.SetCtx(ctx, key, value)
 }
 
 func (r *redisCache) SetCtx(ctx context.Context, key string, value []byte) error {
@@ -58,8 +54,8 @@ func (r *redisCache) SetCtx(ctx context.Context, key string, value []byte) error
 	return nil
 }
 
-func (r *redisCache) Get(key string) ([]byte, error) {
-	return r.GetCtx(r.ctx, key)
+func (r *redisCache) Get(ctx context.Context, key string) ([]byte, error) {
+	return r.GetCtx(ctx, key)
 }
 
 func (r *redisCache) GetCtx(ctx context.Context, key string) ([]byte, error) {
@@ -70,8 +66,8 @@ func (r *redisCache) GetCtx(ctx context.Context, key string) ([]byte, error) {
 	return result.Bytes()
 }
 
-func (r *redisCache) Del(key string) error {
-	return r.DelCtx(r.ctx, key)
+func (r *redisCache) Del(ctx context.Context, key string) error {
+	return r.DelCtx(ctx, key)
 }
 
 func (r *redisCache) DelCtx(ctx context.Context, key string) error {
@@ -82,8 +78,8 @@ func (r *redisCache) DelCtx(ctx context.Context, key string) error {
 	return nil
 }
 
-func (r *redisCache) BatchGet(keys ...string) (cachedValues [][]byte, err error) {
-	return r.BatchGetCtx(r.ctx, keys...)
+func (r *redisCache) BatchGet(ctx context.Context, keys ...string) (cachedValues [][]byte, err error) {
+	return r.BatchGetCtx(ctx, keys...)
 }
 
 func (r *redisCache) BatchGetCtx(ctx context.Context, keys ...string) (cachedValues [][]byte, err error) {
@@ -114,8 +110,8 @@ func (r *redisCache) BatchGetCtx(ctx context.Context, keys ...string) (cachedVal
 	return cachedValues, nil
 }
 
-func (r *redisCache) BatchSet(keyvalues ...interface{}) error {
-	return r.BatchSetCtx(r.ctx, keyvalues...)
+func (r *redisCache) BatchSet(ctx context.Context, keyvalues ...interface{}) error {
+	return r.BatchSetCtx(ctx, keyvalues...)
 }
 
 func (r *redisCache) BatchSetCtx(ctx context.Context, keyvalues ...interface{}) error {
