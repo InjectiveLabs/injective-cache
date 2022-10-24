@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -25,13 +26,13 @@ func NewLibcache(cap int, ttl time.Duration) (*memLibCache, error) {
 	}, nil
 }
 
-func (l *memLibCache) Set(key string, value []byte) (err error) {
+func (l *memLibCache) Set(ctx context.Context, key string, value []byte) (err error) {
 	// with default ttl
 	l.cache.Store(key, value)
 	return nil
 }
 
-func (l *memLibCache) Get(key string) ([]byte, error) {
+func (l *memLibCache) Get(ctx context.Context, key string) ([]byte, error) {
 	value, exist := l.cache.Load(key)
 	if !exist {
 		return nil, ErrCacheMiss
@@ -39,12 +40,12 @@ func (l *memLibCache) Get(key string) ([]byte, error) {
 	return value.([]byte), nil
 }
 
-func (l *memLibCache) Del(key string) (err error) {
+func (l *memLibCache) Del(ctx context.Context, key string) (err error) {
 	l.cache.Delete(key)
 	return nil
 }
 
-func (l *memLibCache) BatchGet(keys ...string) (result [][]byte, err error) {
+func (l *memLibCache) BatchGet(ctx context.Context, keys ...string) (result [][]byte, err error) {
 	for _, k := range keys {
 		value, exist := l.cache.Load(k)
 		if !exist {
@@ -56,7 +57,7 @@ func (l *memLibCache) BatchGet(keys ...string) (result [][]byte, err error) {
 	return result, nil
 }
 
-func (l *memLibCache) BatchSet(keyvalues ...interface{}) error {
+func (l *memLibCache) BatchSet(ctx context.Context, keyvalues ...interface{}) error {
 	if len(keyvalues)%2 != 0 {
 		return errors.New("keyvalues len must be even")
 	}
