@@ -61,6 +61,9 @@ func (r *redisCache) Get(ctx context.Context, key string) ([]byte, error) {
 func (r *redisCache) GetCtx(ctx context.Context, key string) ([]byte, error) {
 	result := r.client.Get(ctx, key)
 	if err := result.Err(); err != nil {
+		if err == rediscache.Nil {
+			return nil, ErrCacheMiss
+		}
 		return nil, err
 	}
 	return result.Bytes()

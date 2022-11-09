@@ -2,7 +2,6 @@ package cache
 
 import (
 	"context"
-	"errors"
 )
 
 type Cache interface {
@@ -17,9 +16,3 @@ type Cache interface {
 	BatchSet(ctx context.Context, keyvalues ...interface{}) error
 	Close() error
 }
-
-var (
-	ErrCacheMiss    = errors.New("not found in cache")
-	ErrInvalidKey   = errors.New("key is invalid")
-	ErrInvalidValue = errors.New("value is invalid")
-)
