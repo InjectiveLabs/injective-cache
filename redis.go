@@ -162,3 +162,10 @@ func (r *redisCache) Close() error {
 func (r *redisCache) CloseCtx(_ context.Context) error {
 	return r.Close()
 }
+
+func (r *redisCache) IsRunning(ctx context.Context) bool {
+	if r.client == nil {
+		return false
+	}
+	return r.client.Ping(ctx).Err() == nil
+}
