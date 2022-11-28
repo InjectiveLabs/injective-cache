@@ -82,3 +82,7 @@ func (l *memLibCache) Close() error {
 	l.cache.Purge()
 	return nil
 }
+
+func (r *memLibCache) IsRunning(ctx context.Context) bool {
+	return true
+}

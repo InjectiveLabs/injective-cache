@@ -14,5 +14,8 @@ type Cache interface {
 	// key1, value1, key2, value2 ...
 	// string, bytes, string,bytes
 	BatchSet(ctx context.Context, keyvalues ...interface{}) error
+
+	IsRunning(ctx context.Context) bool
+
 	Close() error
 }
