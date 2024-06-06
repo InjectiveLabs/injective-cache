@@ -19,3 +19,8 @@ type Cache interface {
 
 	Close() error
 }
+
+type RawCache interface {
+	Set(ctx context.Context, key interface{}, value interface{}) (err error)
+	Get(ctx context.Context, key interface{}) (value interface{}, err error)
+}
