@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"time"
 )
 
 type Cache interface {
@@ -20,7 +21,17 @@ type Cache interface {
 	Close() error
 }
 
-type RawCache interface {
+// SimpleCache is a cache interface that allows any type of key and value
+// as long as the key is hashable and the value is serializable.
+type SimpleCache interface {
 	Set(ctx context.Context, key interface{}, value interface{}) (err error)
-	Get(ctx context.Context, key interface{}) (value interface{}, err error)
+	SetWithTTL(ctx context.Context, key interface{}, value interface{}, ttl time.Duration) (err error)
+	Get(ctx context.Context, key interface{}, value interface{}) (err error)
+	Del(ctx context.Context, keys ...interface{}) (err error)
+	Clear(ctx context.Context) (err error)
+}
+
+// Get is a generic helper to retrieve any type of value from a SimpleCache.
+func Get[T any](ctx context.Context, c SimpleCache, key interface{}) (value T, err error) {
+	return value, c.Get(ctx, key, &value)
 }
