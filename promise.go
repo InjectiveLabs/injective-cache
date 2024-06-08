@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 )
 
 type Promise[T any] struct {
@@ -24,18 +25,23 @@ func NewPromise[T any]() (*Promise[T], func(T, error)) {
 	return p, resolve
 }
 
+type inFlightPromise[T any] struct {
+	*Promise[T]
+	waiting atomic.Int64
+}
+
 type CachedResourceCoalescing[K comparable, T any] struct {
 	OnErr    func(error)
 	cache    SimpleCache
 	cacheMX  sync.RWMutex
-	inFlight map[K]*Promise[T]
+	inFlight map[K]*inFlightPromise[T]
 	once     sync.Once
 }
 
 func NewCachedResourceCoalescing[K comparable, T any](cache SimpleCache) *CachedResourceCoalescing[K, T] {
 	return &CachedResourceCoalescing[K, T]{
 		cache:    cache,
-		inFlight: make(map[K]*Promise[T]),
+		inFlight: make(map[K]*inFlightPromise[T]),
 	}
 }
 
@@ -55,6 +61,8 @@ func GetOnceWithStore[K comparable, T any](
 	crc.cacheMX.Lock()
 	promise, found := crc.inFlight[key]
 	if found {
+		promise.waiting.Add(1)
+		defer promise.waiting.Add(-1)
 		crc.cacheMX.Unlock()
 		select {
 		case <-ctx.Done():
@@ -66,7 +74,8 @@ func GetOnceWithStore[K comparable, T any](
 
 	// not found, create a new promise and query the result
 	var resolve func(T, error)
-	promise, resolve = NewPromise[T]()
+	promise = new(inFlightPromise[T])
+	promise.Promise, resolve = NewPromise[T]()
 	crc.inFlight[key] = promise
 	crc.cacheMX.Unlock()
 

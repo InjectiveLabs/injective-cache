@@ -8,22 +8,22 @@ import (
 	_ "github.com/shaj13/libcache/lru"
 )
 
-var _ SimpleCache = (*TypedLibCache[string])(nil)
+var _ SimpleCache = (*TypedLibCache[string, string])(nil)
 
-type TypedLibCache[T any] struct {
+type TypedLibCache[K comparable, T any] struct {
 	// caveat:
 	// libcache won't evict upon timeout, eviction only happens when it's expired + the cache key is read
 	cache libcache.Cache
 }
 
-func NewTypedLibCache[T any](cache libcache.Cache, ttl time.Duration) *TypedLibCache[T] {
+func NewTypedLibCache[K comparable, T any](cache libcache.Cache, ttl time.Duration) *TypedLibCache[K, T] {
 	cache.SetTTL(ttl)
-	return &TypedLibCache[T]{
+	return &TypedLibCache[K, T]{
 		cache: cache,
 	}
 }
 
-func (l *TypedLibCache[T]) SetWithTTL(_ context.Context, key interface{}, value interface{}, ttl time.Duration) (err error) {
+func (l *TypedLibCache[K, T]) SetWithTTL(_ context.Context, key interface{}, value interface{}, ttl time.Duration) (err error) {
 	if _, ok := value.(T); !ok {
 		return ErrInvalidValue
 	}
@@ -31,7 +31,10 @@ func (l *TypedLibCache[T]) SetWithTTL(_ context.Context, key interface{}, value 
 	return nil
 }
 
-func (l *TypedLibCache[T]) Set(_ context.Context, key interface{}, value interface{}) (err error) {
+func (l *TypedLibCache[K, T]) Set(_ context.Context, key interface{}, value interface{}) (err error) {
+	if _, ok := key.(K); !ok {
+		return ErrInvalidKey
+	}
 	if _, ok := value.(T); !ok {
 		return ErrInvalidValue
 	}
@@ -39,7 +42,10 @@ func (l *TypedLibCache[T]) Set(_ context.Context, key interface{}, value interfa
 	return nil
 }
 
-func (l *TypedLibCache[T]) Get(_ context.Context, key interface{}, value interface{}) (err error) {
+func (l *TypedLibCache[K, T]) Get(_ context.Context, key interface{}, value interface{}) (err error) {
+	if _, ok := key.(K); !ok {
+		return ErrInvalidKey
+	}
 	v, exist := l.cache.Load(key)
 	if !exist {
 		return ErrCacheMiss
@@ -51,14 +57,17 @@ func (l *TypedLibCache[T]) Get(_ context.Context, key interface{}, value interfa
 	return nil
 }
 
-func (l *TypedLibCache[T]) Del(_ context.Context, keys ...interface{}) (err error) {
+func (l *TypedLibCache[K, T]) Del(_ context.Context, keys ...interface{}) (err error) {
 	for _, key := range keys {
+		if _, ok := key.(K); !ok {
+			return ErrInvalidKey
+		}
 		l.cache.Delete(key)
 	}
 	return nil
 }
 
-func (l *TypedLibCache[T]) Clear(_ context.Context) (err error) {
+func (l *TypedLibCache[K, T]) Clear(_ context.Context) (err error) {
 	l.cache.Purge()
 	return nil
 }

@@ -11,7 +11,7 @@ import (
 
 func TestLRULibCacheString(t *testing.T) {
 	ctx := context.Background()
-	stringCache := NewTypedLibCache[string](libcache.LRU.New(10), time.Minute)
+	stringCache := NewTypedLibCache[string, string](libcache.LRU.New(10), time.Minute)
 
 	t.Run("Set and Get", func(t *testing.T) {
 		key := "key1"
@@ -97,7 +97,7 @@ func TestLRULibCacheStruct(t *testing.T) {
 		Value string
 	}
 
-	structCache := NewTypedLibCache[*valueStruct](libcache.LRU.New(10), time.Minute)
+	structCache := NewTypedLibCache[string, *valueStruct](libcache.LRU.New(10), time.Minute)
 
 	t.Run("Set and Get", func(t *testing.T) {
 		key := "key1"
