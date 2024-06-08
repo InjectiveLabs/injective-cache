@@ -3,12 +3,13 @@ package cache
 import (
 	"context"
 	"fmt"
-	"github.com/golang/mock/gomock"
-	"github.com/shaj13/libcache"
-	"github.com/stretchr/testify/require"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/golang/mock/gomock"
+	"github.com/shaj13/libcache"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPromise(t *testing.T) {

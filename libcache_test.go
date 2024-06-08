@@ -2,11 +2,13 @@ package cache
 
 import (
 	"context"
-	"github.com/shaj13/libcache"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/shaj13/libcache"
+	_ "github.com/shaj13/libcache/lru"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLRULibCacheString(t *testing.T) {

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/shaj13/libcache"
-	_ "github.com/shaj13/libcache/lru"
 )
 
 var _ SimpleCache = (*TypedLibCache[string, string])(nil)
