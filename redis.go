@@ -170,10 +170,10 @@ func (r *redisCache) IsRunning(ctx context.Context) bool {
 	return r.client.Ping(ctx).Err() == nil
 }
 
-var _ SimpleCache = (*RedisCacheV2)(nil)
+var _ SimpleCache = (*RedisSimpleCache)(nil)
 
-// RedisCacheV2 is a redis cache implementation using go-redis/v8
-type RedisCacheV2 struct {
+// RedisSimpleCache is a redis cache implementation using go-redis/v8
+type RedisSimpleCache struct {
 	// client is the redis client
 	client *rediscache.Client
 	// ttl is the default time-to-live for cache entries: 0 means no expiration
@@ -183,23 +183,23 @@ type RedisCacheV2 struct {
 	codec Codec
 }
 
-// NewRedisCacheV2 creates a new RedisCacheV2 instance
-func NewRedisCacheV2(client *rediscache.Client, codec Codec, ttl time.Duration) *RedisCacheV2 {
+// NewRedisSimpleCache creates a new RedisSimpleCache instance
+func NewRedisSimpleCache(client *rediscache.Client, codec Codec, ttl time.Duration) *RedisSimpleCache {
 	if codec == nil {
 		codec = &JsonCodec{}
 	}
-	return &RedisCacheV2{
+	return &RedisSimpleCache{
 		client: client,
 		ttl:    ttl,
 		codec:  codec,
 	}
 }
 
-func (r *RedisCacheV2) Set(ctx context.Context, key interface{}, value interface{}) (err error) {
+func (r *RedisSimpleCache) Set(ctx context.Context, key interface{}, value interface{}) (err error) {
 	return r.SetWithTTL(ctx, key, value, r.ttl)
 }
 
-func (r *RedisCacheV2) SetWithTTL(ctx context.Context, key interface{}, value interface{}, ttl time.Duration) (err error) {
+func (r *RedisSimpleCache) SetWithTTL(ctx context.Context, key interface{}, value interface{}, ttl time.Duration) (err error) {
 	k, err := keyToString(key)
 	if err != nil {
 		return err
@@ -215,7 +215,7 @@ func (r *RedisCacheV2) SetWithTTL(ctx context.Context, key interface{}, value in
 	return nil
 }
 
-func (r *RedisCacheV2) Get(ctx context.Context, key interface{}, value interface{}) (err error) {
+func (r *RedisSimpleCache) Get(ctx context.Context, key interface{}, value interface{}) (err error) {
 	k, err := keyToString(key)
 	if err != nil {
 		return err
@@ -235,7 +235,7 @@ func (r *RedisCacheV2) Get(ctx context.Context, key interface{}, value interface
 	return nil
 }
 
-func (r *RedisCacheV2) Del(ctx context.Context, keys ...interface{}) (err error) {
+func (r *RedisSimpleCache) Del(ctx context.Context, keys ...interface{}) (err error) {
 	ks, err := keysToString(keys...)
 	if err != nil {
 		return err
@@ -247,7 +247,7 @@ func (r *RedisCacheV2) Del(ctx context.Context, keys ...interface{}) (err error)
 	return nil
 }
 
-func (r *RedisCacheV2) Clear(ctx context.Context) (err error) {
+func (r *RedisSimpleCache) Clear(ctx context.Context) (err error) {
 	status := r.client.FlushDB(ctx)
 	if err = status.Err(); err != nil {
 		return fmt.Errorf("clearing cache: %w", err)

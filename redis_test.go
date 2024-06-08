@@ -4,17 +4,18 @@ package cache
 
 import (
 	"context"
-	"github.com/go-redis/redis/v8"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/go-redis/redis/v8"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var defaultRedisURL = "localhost:6379"
 
-func TestRedisCacheV2(t *testing.T) {
+func TestRedisSimpleCache(t *testing.T) {
 	ctx := context.Background()
 
 	redisURL := os.Getenv("REDIS_URL")
@@ -28,15 +29,15 @@ func TestRedisCacheV2(t *testing.T) {
 	redisClient.FlushAll(ctx)
 
 	ttl := time.Minute
-	redisCacheV2 := NewRedisCacheV2(redisClient, nil, ttl)
+	simpleRedisCache := NewRedisSimpleCache(redisClient, nil, ttl)
 
 	t.Run("Set and Get", func(t *testing.T) {
 		key := "key1"
 		value := "value1"
-		err := redisCacheV2.Set(ctx, key, value)
+		err := simpleRedisCache.Set(ctx, key, value)
 		require.NoError(t, err)
 
-		retrievedValue, err := Get[string](ctx, redisCacheV2, key)
+		retrievedValue, err := Get[string](ctx, simpleRedisCache, key)
 		require.NoError(t, err)
 		assert.Equal(t, value, retrievedValue)
 	})
@@ -48,10 +49,10 @@ func TestRedisCacheV2(t *testing.T) {
 
 		key := "key2"
 		value := &valueStruct{Value: "value2"}
-		err := redisCacheV2.SetWithTTL(ctx, key, value, time.Millisecond*250)
+		err := simpleRedisCache.SetWithTTL(ctx, key, value, time.Millisecond*250)
 		require.NoError(t, err)
 
-		retrievedValue, err := Get[*valueStruct](ctx, redisCacheV2, key)
+		retrievedValue, err := Get[*valueStruct](ctx, simpleRedisCache, key)
 		require.NoError(t, err)
 		assert.Equal(t, value, retrievedValue)
 		assert.Equal(t, value.Value, retrievedValue.Value)
@@ -59,41 +60,41 @@ func TestRedisCacheV2(t *testing.T) {
 
 		time.Sleep(time.Millisecond * 300)
 
-		retrievedValue, err = Get[*valueStruct](ctx, redisCacheV2, key)
+		retrievedValue, err = Get[*valueStruct](ctx, simpleRedisCache, key)
 		require.ErrorIs(t, err, ErrCacheMiss)
 	})
 
 	t.Run("Get non-existent key", func(t *testing.T) {
 		key := "nonexistent"
-		err := redisCacheV2.Get(ctx, key, nil)
+		err := simpleRedisCache.Get(ctx, key, nil)
 		assert.ErrorIs(t, err, ErrCacheMiss)
 	})
 
 	t.Run("Del", func(t *testing.T) {
 		key := "key4"
 		value := "value4"
-		err := redisCacheV2.Set(ctx, key, value)
+		err := simpleRedisCache.Set(ctx, key, value)
 		require.NoError(t, err)
 
-		err = redisCacheV2.Del(ctx, key)
+		err = simpleRedisCache.Del(ctx, key)
 		require.NoError(t, err)
 
-		err = redisCacheV2.Get(ctx, key, nil)
+		err = simpleRedisCache.Get(ctx, key, nil)
 		assert.ErrorIs(t, err, ErrCacheMiss)
 	})
 
 	t.Run("Clear", func(t *testing.T) {
-		err := redisCacheV2.Set(ctx, "key4", "value4")
+		err := simpleRedisCache.Set(ctx, "key4", "value4")
 		require.NoError(t, err)
-		err = redisCacheV2.Set(ctx, "key5", "value5")
-		require.NoError(t, err)
-
-		err = redisCacheV2.Clear(ctx)
+		err = simpleRedisCache.Set(ctx, "key5", "value5")
 		require.NoError(t, err)
 
-		err = redisCacheV2.Get(ctx, "key5", nil)
+		err = simpleRedisCache.Clear(ctx)
+		require.NoError(t, err)
+
+		err = simpleRedisCache.Get(ctx, "key5", nil)
 		assert.ErrorIs(t, err, ErrCacheMiss)
-		err = redisCacheV2.Get(ctx, "key6", nil)
+		err = simpleRedisCache.Get(ctx, "key6", nil)
 		assert.ErrorIs(t, err, ErrCacheMiss)
 	})
 
@@ -101,12 +102,12 @@ func TestRedisCacheV2(t *testing.T) {
 		key := "key7"
 		value := "value7"
 		ttl := time.Millisecond
-		err := redisCacheV2.SetWithTTL(ctx, key, value, ttl)
+		err := simpleRedisCache.SetWithTTL(ctx, key, value, ttl)
 		require.NoError(t, err)
 
 		time.Sleep(ttl * 2)
 
-		err = redisCacheV2.Get(ctx, key, nil)
+		err = simpleRedisCache.Get(ctx, key, nil)
 		assert.ErrorIs(t, err, ErrCacheMiss)
 	})
 }
