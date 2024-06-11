@@ -6,43 +6,26 @@ import (
 	"sync/atomic"
 )
 
-type Promise[T any] struct {
-	done  <-chan struct{}
-	value T
-	err   error
-}
-
-func NewPromise[T any]() (*Promise[T], func(T, error)) {
-	ch := make(chan struct{})
-	p := &Promise[T]{
-		done: ch,
-	}
-	resolve := func(value T, err error) {
-		p.value = value
-		p.err = err
-		close(ch)
-	}
-	return p, resolve
-}
-
-type inFlightPromise[T any] struct {
-	*Promise[T]
-	waiting atomic.Int64
-}
-
 type CachedResourceCoalescing[K comparable, T any] struct {
 	OnErr    func(error)
 	cache    TTLCache
 	cacheMX  sync.RWMutex
-	inFlight map[K]*inFlightPromise[T]
+	inFlight map[K]*resource
 	once     sync.Once
 }
 
 func NewCachedResourceCoalescing[K comparable, T any](cache TTLCache) *CachedResourceCoalescing[K, T] {
 	return &CachedResourceCoalescing[K, T]{
 		cache:    cache,
-		inFlight: make(map[K]*inFlightPromise[T]),
+		inFlight: make(map[K]*resource),
 	}
+}
+
+type resource struct {
+	value   interface{}
+	err     error
+	waiting atomic.Int64
+	done    chan struct{}
 }
 
 // GetOnceWithStore is a helper function that fetches a value from the cache or executes the provided function to get the value.
@@ -59,35 +42,36 @@ func GetOnceWithStore[K comparable, T any](
 	}
 
 	crc.cacheMX.Lock()
-	promise, found := crc.inFlight[key]
+	res, found := crc.inFlight[key]
 	if found {
-		promise.waiting.Add(1)
-		defer promise.waiting.Add(-1)
+		crc.inFlight[key].waiting.Add(1)
+		defer crc.inFlight[key].waiting.Add(-1)
 		crc.cacheMX.Unlock()
 		select {
 		case <-ctx.Done():
 			return result, ctx.Err()
-		case <-promise.done:
-			return promise.value, promise.err
+		case <-res.done:
+			return res.value.(T), res.err
 		}
 	}
 
 	// not found, create a new promise and query the result
-	var resolve func(T, error)
-	promise = new(inFlightPromise[T])
-	promise.Promise, resolve = NewPromise[T]()
-	crc.inFlight[key] = promise
+	res = &resource{
+		done: make(chan struct{}),
+	}
+	crc.inFlight[key] = res
 	crc.cacheMX.Unlock()
 
 	// execute the function
-	v, store, err := get()
-
-	// resolve the promise to return the results
-	resolve(v, err)
+	var store bool
+	result, store, err = get()
+	res.value = result
+	res.err = err
+	close(res.done)
 
 	// store the result in the cache if needed
 	if store {
-		if setErr := crc.cache.Set(ctx, key, v); setErr != nil && crc.OnErr != nil {
+		if setErr := crc.cache.Set(ctx, key, result); setErr != nil && crc.OnErr != nil {
 			crc.OnErr(setErr)
 		}
 	}
@@ -97,7 +81,7 @@ func GetOnceWithStore[K comparable, T any](
 	delete(crc.inFlight, key)
 	crc.cacheMX.Unlock()
 
-	return v, err
+	return result, err
 }
 
 // GetOnce is a helper function that fetches a value from the cache or executes the provided function to get the value.
