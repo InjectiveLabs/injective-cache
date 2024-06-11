@@ -136,7 +136,7 @@ func TestCachedResourceCoalescing(t *testing.T) {
 
 	t.Run("set cache error", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
-		cache := NewMockSimpleCache(ctrl)
+		cache := NewMockTTLCache(ctrl)
 
 		var gotErr error
 

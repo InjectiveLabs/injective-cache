@@ -32,13 +32,13 @@ type inFlightPromise[T any] struct {
 
 type CachedResourceCoalescing[K comparable, T any] struct {
 	OnErr    func(error)
-	cache    SimpleCache
+	cache    TTLCache
 	cacheMX  sync.RWMutex
 	inFlight map[K]*inFlightPromise[T]
 	once     sync.Once
 }
 
-func NewCachedResourceCoalescing[K comparable, T any](cache SimpleCache) *CachedResourceCoalescing[K, T] {
+func NewCachedResourceCoalescing[K comparable, T any](cache TTLCache) *CachedResourceCoalescing[K, T] {
 	return &CachedResourceCoalescing[K, T]{
 		cache:    cache,
 		inFlight: make(map[K]*inFlightPromise[T]),

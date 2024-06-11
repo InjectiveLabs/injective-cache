@@ -21,21 +21,19 @@ type Cache interface {
 	Close() error
 }
 
-// SimpleCache is a cache interface that allows any type of key and value
+// TTLCache is a cache interface that allows any type of key and value
 // as long as the key is hashable and the value is serializable.
 //
-//go:generate mockgen -destination=icache_mock.go -package=cache github.com/InjectiveLabs/injective-cache SimpleCache
-type SimpleCache interface {
-	Set(ctx context.Context, key interface{}, value interface{}) (err error)
-	SetWithTTL(ctx context.Context, key interface{}, value interface{}, ttl time.Duration) (err error)
-	Get(ctx context.Context, key interface{}, value interface{}) (err error)
-	Del(ctx context.Context, keys ...interface{}) (err error)
+//go:generate mockgen -destination=icache_mock.go -package=cache github.com/InjectiveLabs/injective-cache TTLCache
+type TTLCache interface {
+	Set(ctx context.Context, key any, value any) (err error)
+	SetWithTTL(ctx context.Context, key any, value any, ttl time.Duration) (err error)
+	Get(ctx context.Context, key any, value any) (err error)
+	Del(ctx context.Context, keys ...any) (err error)
 	Clear(ctx context.Context) (err error)
 }
 
-var _ SimpleCache = (*MockSimpleCache)(nil)
-
-// Get is a generic helper to retrieve any type of value from a SimpleCache.
-func Get[T any](ctx context.Context, c SimpleCache, key interface{}) (value T, err error) {
+// Get is a generic helper to retrieve any type of value from a TTLCache.
+func Get[T any](ctx context.Context, c TTLCache, key any) (value T, err error) {
 	return value, c.Get(ctx, key, &value)
 }

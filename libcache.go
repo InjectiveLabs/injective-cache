@@ -7,7 +7,7 @@ import (
 	"github.com/shaj13/libcache"
 )
 
-var _ SimpleCache = (*TypedLibCache[string, string])(nil)
+var _ TTLCache = (*TypedLibCache[string, string])(nil)
 
 type TypedLibCache[K comparable, T any] struct {
 	// caveat:
@@ -22,7 +22,7 @@ func NewTypedLibCache[K comparable, T any](cache libcache.Cache, ttl time.Durati
 	}
 }
 
-func (l *TypedLibCache[K, T]) SetWithTTL(_ context.Context, key interface{}, value interface{}, ttl time.Duration) (err error) {
+func (l *TypedLibCache[K, T]) SetWithTTL(_ context.Context, key any, value any, ttl time.Duration) (err error) {
 	if _, ok := value.(T); !ok {
 		return ErrInvalidValue
 	}
@@ -30,7 +30,7 @@ func (l *TypedLibCache[K, T]) SetWithTTL(_ context.Context, key interface{}, val
 	return nil
 }
 
-func (l *TypedLibCache[K, T]) Set(_ context.Context, key interface{}, value interface{}) (err error) {
+func (l *TypedLibCache[K, T]) Set(_ context.Context, key any, value any) (err error) {
 	if _, ok := key.(K); !ok {
 		return ErrInvalidKey
 	}
@@ -41,7 +41,7 @@ func (l *TypedLibCache[K, T]) Set(_ context.Context, key interface{}, value inte
 	return nil
 }
 
-func (l *TypedLibCache[K, T]) Get(_ context.Context, key interface{}, value interface{}) (err error) {
+func (l *TypedLibCache[K, T]) Get(_ context.Context, key any, value any) (err error) {
 	if _, ok := key.(K); !ok {
 		return ErrInvalidKey
 	}
@@ -56,7 +56,7 @@ func (l *TypedLibCache[K, T]) Get(_ context.Context, key interface{}, value inte
 	return nil
 }
 
-func (l *TypedLibCache[K, T]) Del(_ context.Context, keys ...interface{}) (err error) {
+func (l *TypedLibCache[K, T]) Del(_ context.Context, keys ...any) (err error) {
 	for _, key := range keys {
 		if _, ok := key.(K); !ok {
 			return ErrInvalidKey

@@ -113,11 +113,11 @@ func (r *redisCache) BatchGetCtx(ctx context.Context, keys ...string) (cachedVal
 	return cachedValues, nil
 }
 
-func (r *redisCache) BatchSet(ctx context.Context, keyvalues ...interface{}) error {
+func (r *redisCache) BatchSet(ctx context.Context, keyvalues ...any) error {
 	return r.BatchSetCtx(ctx, keyvalues...)
 }
 
-func (r *redisCache) BatchSetCtx(ctx context.Context, keyvalues ...interface{}) error {
+func (r *redisCache) BatchSetCtx(ctx context.Context, keyvalues ...any) error {
 	if len(keyvalues)%2 != 0 {
 		return errors.New("keyvalues len must be even")
 	}
@@ -170,7 +170,7 @@ func (r *redisCache) IsRunning(ctx context.Context) bool {
 	return r.client.Ping(ctx).Err() == nil
 }
 
-var _ SimpleCache = (*RedisSimpleCache)(nil)
+var _ TTLCache = (*RedisSimpleCache)(nil)
 
 // RedisSimpleCache is a redis cache implementation using go-redis/v8
 type RedisSimpleCache struct {
@@ -195,11 +195,11 @@ func NewRedisSimpleCache(client *rediscache.Client, codec Codec, ttl time.Durati
 	}
 }
 
-func (r *RedisSimpleCache) Set(ctx context.Context, key interface{}, value interface{}) (err error) {
+func (r *RedisSimpleCache) Set(ctx context.Context, key any, value any) (err error) {
 	return r.SetWithTTL(ctx, key, value, r.ttl)
 }
 
-func (r *RedisSimpleCache) SetWithTTL(ctx context.Context, key interface{}, value interface{}, ttl time.Duration) (err error) {
+func (r *RedisSimpleCache) SetWithTTL(ctx context.Context, key any, value any, ttl time.Duration) (err error) {
 	k, err := keyToString(key)
 	if err != nil {
 		return err
@@ -215,7 +215,7 @@ func (r *RedisSimpleCache) SetWithTTL(ctx context.Context, key interface{}, valu
 	return nil
 }
 
-func (r *RedisSimpleCache) Get(ctx context.Context, key interface{}, value interface{}) (err error) {
+func (r *RedisSimpleCache) Get(ctx context.Context, key any, value any) (err error) {
 	k, err := keyToString(key)
 	if err != nil {
 		return err
@@ -235,7 +235,7 @@ func (r *RedisSimpleCache) Get(ctx context.Context, key interface{}, value inter
 	return nil
 }
 
-func (r *RedisSimpleCache) Del(ctx context.Context, keys ...interface{}) (err error) {
+func (r *RedisSimpleCache) Del(ctx context.Context, keys ...any) (err error) {
 	ks, err := keysToString(keys...)
 	if err != nil {
 		return err
@@ -256,7 +256,7 @@ func (r *RedisSimpleCache) Clear(ctx context.Context) (err error) {
 }
 
 // keyToString converts a key to a string
-func keyToString(k interface{}) (string, error) {
+func keyToString(k any) (string, error) {
 	if s, ok := k.(string); ok {
 		return s, nil
 	}
@@ -268,7 +268,7 @@ func keyToString(k interface{}) (string, error) {
 }
 
 // keys converts a list of keys to a list of strings
-func keysToString(keys ...interface{}) ([]string, error) {
+func keysToString(keys ...any) ([]string, error) {
 	ks := make([]string, 0, len(keys))
 	for _, k := range keys {
 		valid, err := keyToString(k)
