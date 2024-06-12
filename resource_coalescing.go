@@ -12,7 +12,7 @@ type ResourceCoalescingCache[K comparable, T any] struct {
 	OnErr    func(error)
 	cache    TTLCache
 	cacheMX  sync.RWMutex
-	inFlight map[K]*resource
+	inFlight map[K]*resource[T]
 	once     sync.Once
 }
 
@@ -20,12 +20,12 @@ type ResourceCoalescingCache[K comparable, T any] struct {
 func NewResourceCoalescingCache[K comparable, T any](cache TTLCache) *ResourceCoalescingCache[K, T] {
 	return &ResourceCoalescingCache[K, T]{
 		cache:    cache,
-		inFlight: make(map[K]*resource),
+		inFlight: make(map[K]*resource[T]),
 	}
 }
 
-type resource struct {
-	value   interface{}
+type resource[T any] struct {
+	value   T
 	err     error
 	waiting atomic.Int64
 	done    chan struct{}
@@ -48,12 +48,12 @@ func (crc *ResourceCoalescingCache[K, T]) Get(ctx context.Context, key K, fetch 
 		case <-ctx.Done():
 			return result, ctx.Err()
 		case <-res.done:
-			return res.value.(T), res.err
+			return res.value, res.err
 		}
 	}
 
 	// not found, create a new promise and query the result
-	res = &resource{
+	res = &resource[T]{
 		done: make(chan struct{}),
 	}
 	crc.inFlight[key] = res
