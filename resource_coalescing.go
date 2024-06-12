@@ -14,19 +14,12 @@ type ResourceCoalescingCache[K comparable, T any] struct {
 	cacheMX  sync.RWMutex
 	inFlight map[K]*resource
 	once     sync.Once
-	fetch    func() (T, error)
 }
 
 // NewResourceCoalescingCache creates a new ResourceCoalescingCache
-func NewResourceCoalescingCache[K comparable, T any](cache TTLCache, fetch func() (T, error)) *ResourceCoalescingCache[K, T] {
-	if fetch == nil {
-		fetch = func() (res T, err error) {
-			return res, ErrMissingFetchFunction
-		}
-	}
+func NewResourceCoalescingCache[K comparable, T any](cache TTLCache) *ResourceCoalescingCache[K, T] {
 	return &ResourceCoalescingCache[K, T]{
 		cache:    cache,
-		fetch:    fetch,
 		inFlight: make(map[K]*resource),
 	}
 }
@@ -38,7 +31,7 @@ type resource struct {
 	done    chan struct{}
 }
 
-func (crc *ResourceCoalescingCache[K, T]) Get(ctx context.Context, key K) (result T, err error) {
+func (crc *ResourceCoalescingCache[K, T]) Get(ctx context.Context, key K, fetch func() (T, error)) (result T, err error) {
 	var cachedRes T
 	cacheErr := crc.cache.Get(ctx, key, &cachedRes)
 	if cacheErr == nil {
@@ -67,7 +60,7 @@ func (crc *ResourceCoalescingCache[K, T]) Get(ctx context.Context, key K) (resul
 	crc.cacheMX.Unlock()
 
 	// execute the function
-	result, err = crc.fetch()
+	result, err = fetch()
 	res.value = result
 	res.err = err
 	close(res.done)
