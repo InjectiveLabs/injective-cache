@@ -6,17 +6,27 @@ import (
 	"sync/atomic"
 )
 
-type CachedResourceCoalescing[K comparable, T any] struct {
+// ResourceCoalescingCache is a cache that coalesces multiple requests for the same resource into a single request
+// to prevent cache stampedes. It is useful when the resource is expensive to compute and can be shared among multiple
+type ResourceCoalescingCache[K comparable, T any] struct {
 	OnErr    func(error)
 	cache    TTLCache
 	cacheMX  sync.RWMutex
 	inFlight map[K]*resource
 	once     sync.Once
+	fetch    func() (T, error)
 }
 
-func NewCachedResourceCoalescing[K comparable, T any](cache TTLCache) *CachedResourceCoalescing[K, T] {
-	return &CachedResourceCoalescing[K, T]{
+// NewResourceCoalescingCache creates a new ResourceCoalescingCache
+func NewResourceCoalescingCache[K comparable, T any](cache TTLCache, fetch func() (T, error)) *ResourceCoalescingCache[K, T] {
+	if fetch == nil {
+		fetch = func() (res T, err error) {
+			return res, ErrMissingFetchFunction
+		}
+	}
+	return &ResourceCoalescingCache[K, T]{
 		cache:    cache,
+		fetch:    fetch,
 		inFlight: make(map[K]*resource),
 	}
 }
@@ -28,13 +38,7 @@ type resource struct {
 	done    chan struct{}
 }
 
-// GetOnceWithStore is a helper function that fetches a value from the cache or executes the provided function to get the value.
-func GetOnceWithStore[K comparable, T any](
-	ctx context.Context,
-	crc *CachedResourceCoalescing[K, T],
-	key K,
-	get func() (result T, storeInCache bool, err error),
-) (result T, err error) {
+func (crc *ResourceCoalescingCache[K, T]) Get(ctx context.Context, key K) (result T, err error) {
 	var cachedRes T
 	cacheErr := crc.cache.Get(ctx, key, &cachedRes)
 	if cacheErr == nil {
@@ -63,14 +67,13 @@ func GetOnceWithStore[K comparable, T any](
 	crc.cacheMX.Unlock()
 
 	// execute the function
-	var store bool
-	result, store, err = get()
+	result, err = crc.fetch()
 	res.value = result
 	res.err = err
 	close(res.done)
 
 	// store the result in the cache if needed
-	if store {
+	if err == nil {
 		if setErr := crc.cache.Set(ctx, key, result); setErr != nil && crc.OnErr != nil {
 			crc.OnErr(setErr)
 		}
@@ -82,14 +85,4 @@ func GetOnceWithStore[K comparable, T any](
 	crc.cacheMX.Unlock()
 
 	return result, err
-}
-
-// GetOnce is a helper function that fetches a value from the cache or executes the provided function to get the value.
-//
-//	It will store the value in the cache if the function returns no error
-func GetOnce[K comparable, T any](ctx context.Context, crc *CachedResourceCoalescing[K, T], key K, execute func() (T, error)) (T, error) {
-	return GetOnceWithStore(ctx, crc, key, func() (T, bool, error) {
-		v, executeErr := execute()
-		return v, executeErr == nil, executeErr
-	})
 }

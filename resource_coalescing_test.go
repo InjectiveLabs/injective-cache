@@ -18,7 +18,7 @@ func TestCachedResourceCoalescing(t *testing.T) {
 
 	t.Run("coalesce", func(t *testing.T) {
 		cache := NewTypedLibCache[string, int](libcache.LRU.New(10), time.Minute)
-		crc := NewCachedResourceCoalescing[string, int](cache)
+		crc := NewResourceCoalescingCache[string, int](cache, nil)
 
 		var wg sync.WaitGroup
 		var executed int
@@ -28,12 +28,13 @@ func TestCachedResourceCoalescing(t *testing.T) {
 			go func(t *testing.T) {
 				defer wg.Done()
 
-				res, err := GetOnce(ctx, crc, "key", func() (int, error) {
+				crc.fetch = func() (int, error) {
 					// wait until all goroutines are blocked
 					<-waitToExecute
 					executed++
 					return 42, nil
-				})
+				}
+				res, err := crc.Get(ctx, "key")
 
 				// all goroutines should return the same value
 				require.NoError(t, err)
@@ -63,10 +64,11 @@ func TestCachedResourceCoalescing(t *testing.T) {
 				go func(t *testing.T) {
 					defer wg.Done()
 
-					res, err := GetOnce(ctx, crc, "key", func() (int, error) {
+					crc.fetch = func() (int, error) {
 						executed++
 						return 0, fmt.Errorf("should not be called")
-					})
+					}
+					res, err := crc.Get(ctx, "key")
 
 					require.NoError(t, err, "should not return an error")
 					require.Equal(t, 42, res, "should return the value from the first call")
@@ -81,7 +83,7 @@ func TestCachedResourceCoalescing(t *testing.T) {
 		ctx, cancel := context.WithCancel(ctx)
 
 		cache := NewTypedLibCache[string, int](libcache.LRU.New(10), time.Minute)
-		crc := NewCachedResourceCoalescing[string, int](cache)
+		crc := NewResourceCoalescingCache[string, int](cache, nil)
 
 		var wg sync.WaitGroup
 		var executed int
@@ -90,11 +92,12 @@ func TestCachedResourceCoalescing(t *testing.T) {
 			go func(t *testing.T) {
 				defer wg.Done()
 
-				_, err := GetOnce(ctx, crc, "key", func() (int, error) {
+				crc.fetch = func() (int, error) {
 					<-ctx.Done()
 					executed++
 					return 0, ctx.Err()
-				})
+				}
+				_, err := crc.Get(ctx, "key")
 
 				require.ErrorIs(t, err, context.Canceled)
 			}(t)
@@ -118,7 +121,7 @@ func TestCachedResourceCoalescing(t *testing.T) {
 
 		var gotErr error
 
-		crc := NewCachedResourceCoalescing[string, int](cache)
+		crc := NewResourceCoalescingCache[string, int](cache, nil)
 		crc.OnErr = func(err error) {
 			gotErr = err
 		}
@@ -126,12 +129,24 @@ func TestCachedResourceCoalescing(t *testing.T) {
 		cache.EXPECT().Get(ctx, "key", gomock.Any()).Return(ErrCacheMiss)
 		cache.EXPECT().Set(ctx, "key", 42).Return(ErrInvalidValue)
 
-		res, err := GetOnce(ctx, crc, "key", func() (int, error) {
+		crc.fetch = func() (int, error) {
 			return 42, nil
-		})
+		}
+		res, err := crc.Get(ctx, "key")
 
 		require.NoError(t, err, "should not return an error")
 		require.Equal(t, 42, res, "should return the value from the function")
 		require.ErrorIs(t, gotErr, ErrInvalidValue, "should return the error when storing the cache")
+	})
+
+	t.Run("missing fetch function", func(t *testing.T) {
+		ctrl := gomock.NewController(t)
+		cache := NewMockTTLCache(ctrl)
+		cache.EXPECT().Get(ctx, "key", gomock.Any()).Return(ErrCacheMiss)
+
+		crc := NewResourceCoalescingCache[string, int](cache, nil)
+
+		_, err := crc.Get(ctx, "key")
+		require.ErrorIs(t, err, ErrMissingFetchFunction, "should return an error")
 	})
 }
