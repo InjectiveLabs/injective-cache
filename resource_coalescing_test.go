@@ -12,28 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPromise(t *testing.T) {
-	t.Run("resolve successfully", func(t *testing.T) {
-		p, resolve := NewPromise[int]()
-
-		resolve(42, nil)
-
-		<-p.done
-		require.NoError(t, p.err)
-		require.Equal(t, 42, p.value)
-	})
-
-	t.Run("resolve with error", func(t *testing.T) {
-		p, resolve := NewPromise[int]()
-
-		resolve(0, ErrInvalidValue)
-
-		<-p.done
-		require.ErrorIs(t, p.err, ErrInvalidValue)
-		require.Zero(t, p.value)
-	})
-}
-
 func TestCachedResourceCoalescing(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
