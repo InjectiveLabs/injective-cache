@@ -113,11 +113,11 @@ func (r *redisCache) BatchGetCtx(ctx context.Context, keys ...string) (cachedVal
 	return cachedValues, nil
 }
 
-func (r *redisCache) BatchSet(ctx context.Context, keyvalues ...interface{}) error {
+func (r *redisCache) BatchSet(ctx context.Context, keyvalues ...any) error {
 	return r.BatchSetCtx(ctx, keyvalues...)
 }
 
-func (r *redisCache) BatchSetCtx(ctx context.Context, keyvalues ...interface{}) error {
+func (r *redisCache) BatchSetCtx(ctx context.Context, keyvalues ...any) error {
 	if len(keyvalues)%2 != 0 {
 		return errors.New("keyvalues len must be even")
 	}
@@ -168,4 +168,114 @@ func (r *redisCache) IsRunning(ctx context.Context) bool {
 		return false
 	}
 	return r.client.Ping(ctx).Err() == nil
+}
+
+var _ TTLCache = (*RedisSimpleCache)(nil)
+
+// RedisSimpleCache is a redis cache implementation using go-redis/v8
+type RedisSimpleCache struct {
+	// client is the redis client
+	client *rediscache.Client
+	// ttl is the default time-to-live for cache entries: 0 means no expiration
+	ttl time.Duration
+	// codec allows to specify a custom codec for encoding/decoding values
+	// json is used by default
+	codec Codec
+}
+
+// NewRedisSimpleCache creates a new RedisSimpleCache instance
+func NewRedisSimpleCache(client *rediscache.Client, codec Codec, ttl time.Duration) *RedisSimpleCache {
+	if codec == nil {
+		codec = &JsonCodec{}
+	}
+	return &RedisSimpleCache{
+		client: client,
+		ttl:    ttl,
+		codec:  codec,
+	}
+}
+
+func (r *RedisSimpleCache) Set(ctx context.Context, key any, value any) (err error) {
+	return r.SetWithTTL(ctx, key, value, r.ttl)
+}
+
+func (r *RedisSimpleCache) SetWithTTL(ctx context.Context, key any, value any, ttl time.Duration) (err error) {
+	k, err := keyToString(key)
+	if err != nil {
+		return err
+	}
+	data, err := r.codec.Encode(value)
+	if err != nil {
+		return ErrInvalidValue
+	}
+	status := r.client.Set(ctx, k, data, ttl)
+	if err = status.Err(); err != nil {
+		return fmt.Errorf("setting key %s: %w", k, err)
+	}
+	return nil
+}
+
+func (r *RedisSimpleCache) Get(ctx context.Context, key any, value any) (err error) {
+	k, err := keyToString(key)
+	if err != nil {
+		return err
+	}
+	data, err := r.client.Get(ctx, k).Bytes()
+	if errors.Is(err, rediscache.Nil) {
+		return ErrCacheMiss
+	}
+	if err != nil {
+		return fmt.Errorf("getting key %s: %w", k, err)
+	}
+
+	err = r.codec.Decode(data, value)
+	if err != nil {
+		return fmt.Errorf("decoding %s value: %w", k, err)
+	}
+	return nil
+}
+
+func (r *RedisSimpleCache) Del(ctx context.Context, keys ...any) (err error) {
+	ks, err := keysToString(keys...)
+	if err != nil {
+		return err
+	}
+	status := r.client.Del(ctx, ks...)
+	if err = status.Err(); err != nil {
+		return fmt.Errorf("deleting keys: %w", err)
+	}
+	return nil
+}
+
+func (r *RedisSimpleCache) Clear(ctx context.Context) (err error) {
+	status := r.client.FlushDB(ctx)
+	if err = status.Err(); err != nil {
+		return fmt.Errorf("clearing cache: %w", err)
+	}
+	return nil
+}
+
+// keyToString converts a key to a string
+func keyToString(k any) (string, error) {
+	if s, ok := k.(string); ok {
+		return s, nil
+	}
+	s := fmt.Sprintf("%v", k)
+	if s == "" {
+		return "", ErrInvalidKey
+	}
+	return s, nil
+}
+
+// keys converts a list of keys to a list of strings
+func keysToString(keys ...any) ([]string, error) {
+	ks := make([]string, 0, len(keys))
+	for _, k := range keys {
+		valid, err := keyToString(k)
+		if err != nil {
+			return nil, err
+		}
+		ks = append(ks, valid)
+	}
+	return ks, nil
 }

@@ -4,6 +4,8 @@ go 1.18
 
 require (
 	github.com/go-redis/redis/v8 v8.11.5
+	github.com/goccy/go-json v0.10.3
+	github.com/golang/mock v1.6.0
 	github.com/shaj13/libcache v1.0.5
 	github.com/stretchr/testify v1.8.0
 )
